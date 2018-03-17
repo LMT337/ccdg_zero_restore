@@ -1,15 +1,12 @@
-import os, csv, glob
+import os, csv, glob, subprocess
 
-#genearate list of correct sample names using
-#need auto method and user input method
-# illumina_info --report library_index_summary --format tsv --woid WOID --output-file-name outfile.test
-# Store sample names in dictionary or list? open files that have samples names, if they are missing the zero
-# and match, add zero back on. write file
+#test dir
+# working_directory = '/Users/ltrani/Desktop/git/qc/ccdg_zero_restore/ccdg_zero_restore/'
+working_directory = '/gscmnt/gc2783/qc/CCDGWGS2018/dev/'
 
-working_directory = '/Users/ltrani/Desktop/git/qc/ccdg_zero_restore/ccdg_zero_restore/'
 
 #test file, will need to run illumina_info to get this file
-infile = '/Users/ltrani/Desktop/git/qc/ccdg_zero_restore/ccdg_zero_restore/correctsamples.tsv'
+# infile = '/Users/ltrani/Desktop/git/qc/ccdg_zero_restore/ccdg_zero_restore/correctsamples.tsv'
 
 #remove non woid file names from
 def is_int(string):
@@ -26,29 +23,25 @@ def qc_status_fix(woid):
     qc_status_file = woid + '.qcstatus.tsv'
     qc_status_file_temp = woid + '.qcstatus.temp.tsv'
     with open(qc_status_file, 'r') as qc_status_filecsv, open(qc_status_file_temp, 'w') as qc_status_file_tempcsv:
-
         qc_status_file_reader = csv.DictReader(qc_status_filecsv, delimiter='\t')
         status_file_header = qc_status_file_reader.fieldnames
-
-        qc_status_file_temp_writer = csv.DictWriter(qc_status_file_tempcsv, fieldnames=status_file_header,
-                                                    delimiter='\t')
+        qc_status_file_temp_writer = csv.DictWriter(qc_status_file_tempcsv, fieldnames=status_file_header, delimiter='\t')
         qc_status_file_temp_writer.writeheader()
-
-        for line in qc_status_file_reader:
-
-            if line['Full Name'] in zero_samp_dict:
-                line['Content'] = zero_samp_dict[line['Full Name']]
-                line['Name'] = zero_samp_dict[line['Full Name']]
-                line['Sample Name'] = zero_samp_dict[line['Full Name']]
-                line['DNA'] = zero_samp_dict[line['Full Name']]
-                line['Read Group Sample Name'] = zero_samp_dict[line['Full Name']]
-                line['QC Sample'] = zero_samp_dict[line['Full Name']]
-                line['Full Name'] = zero_samp_dict[line['Full Name']]
-                qc_status_file_temp_writer.writerow(line)
-            else:
-                qc_status_file_temp_writer.writerow(line)
-    os.rename(qc_status_file_temp, qc_status_file)
-    return
+        if os.path.exists(qc_status_file):
+            for line in qc_status_file_reader:
+                if line['Full Name'] in zero_samp_dict:
+                    line['Content'] = zero_samp_dict[line['Full Name']]
+                    line['Name'] = zero_samp_dict[line['Full Name']]
+                    line['Sample Name'] = zero_samp_dict[line['Full Name']]
+                    line['DNA'] = zero_samp_dict[line['Full Name']]
+                    line['Read Group Sample Name'] = zero_samp_dict[line['Full Name']]
+                    line['QC Sample'] = zero_samp_dict[line['Full Name']]
+                    line['Full Name'] = zero_samp_dict[line['Full Name']]
+                    qc_status_file_temp_writer.writerow(line)
+                else:
+                    qc_status_file_temp_writer.writerow(line)
+        os.rename(qc_status_file_temp, qc_status_file)
+        return
 
 #restore sample name in all qc files
 def qc_all_file_fix(woid, qc_dir):
@@ -125,23 +118,35 @@ def qc_all_file_fix(woid, qc_dir):
 
     return
 
-
+#genearate list of correct sample names using
+#need auto method and user input method
+# illumina_info --report library_index_summary --format tsv --woid WOID --output-file-name outfile.test
 #create dictionary with sample:zerosample from file
 zero_samp_dict = {}
-with open(infile, 'r') as infilecsv:
-    infile_reader = csv.reader(infilecsv, delimiter='\t')
+def qc_info_create(woid):
 
-    #skip three header lines
-    next(infile_reader)
-    next(infile_reader)
-    next(infile_reader)
+    info_outfile = 'illumina_info.' + woid + '.tsv'
 
-    for line in infile_reader:
-        if line:
-            zero_sample = str(line[1].split('-lib')[0].strip())
-            if zero_sample[0] == '0':
-                non_zero_sample = zero_sample[1:]
-                zero_samp_dict[non_zero_sample] = zero_sample
+    if not os.path.exists(info_outfile):
+        subprocess.run(["illumina_info", "--report", 'library_index_summary', "--format", 'tsv', "--woid", woid,
+                        "--output-file-name", info_outfile])
+
+    with open(info_outfile, 'r') as info_outfilecsv:
+        info_file_reader = csv.reader(info_outfilecsv, delimiter='\t')
+
+        #skip three header lines
+        next(info_file_reader)
+        next(info_file_reader)
+        next(info_file_reader)
+
+        for line in info_file_reader:
+            if line:
+                zero_sample = str(line[1].split('-lib')[0].strip())
+                if zero_sample[0] == '0':
+                    non_zero_sample = zero_sample[1:]
+                    zero_samp_dict[non_zero_sample] = zero_sample
+
+    return
 
 #set working dir, glob woid dirs
 os.chdir(working_directory)
@@ -151,13 +156,21 @@ woid_dirs = glob.glob('285*')
 for woid in filter(is_int, woid_dirs):
 
     os.chdir(working_directory + woid)
+
+    #create info file if it does not exist
+    qc_info_create(woid)
+    #restore status file samples
     qc_status_fix(woid)
 
     #find all qc_dirs
     qc_dirs = glob.glob('qc.*.*')
+
+    #restore qc file samples
     for qc_dir in qc_dirs:
         os.chdir(qc_dir)
         qc_all_file_fix(woid, qc_dir)
+
+    os.chdir(working_directory)
 
 
 
