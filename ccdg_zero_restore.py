@@ -4,7 +4,6 @@ import os, csv, glob, subprocess
 # working_directory = '/Users/ltrani/Desktop/git/qc/ccdg_zero_restore/ccdg_zero_restore/'
 working_directory = '/gscmnt/gc2783/qc/CCDGWGS2018/dev/'
 
-
 #test file, will need to run illumina_info to get this file
 # infile = '/Users/ltrani/Desktop/git/qc/ccdg_zero_restore/ccdg_zero_restore/correctsamples.tsv'
 
@@ -28,6 +27,7 @@ def qc_status_fix(woid):
         qc_status_file_temp_writer = csv.DictWriter(qc_status_file_tempcsv, fieldnames=status_file_header, delimiter='\t')
         qc_status_file_temp_writer.writeheader()
         if os.path.exists(qc_status_file):
+            print('Restoring: {}'.format(qc_status_file))
             for line in qc_status_file_reader:
                 if line['Full Name'] in zero_samp_dict:
                     line['Content'] = zero_samp_dict[line['Full Name']]
@@ -51,6 +51,7 @@ def qc_all_file_fix(woid, qc_dir):
     qc_all_file = woid + '.' + qc_dir_split + '.build38.all.tsv'
     qc_all_file_temp = woid + '.' + qc_dir_split + '.build38.all.temp.tsv'
     if os.path.exists(qc_all_file):
+        print('Restoring: {}'.format(qc_all_file))
         with open(qc_all_file, 'r') as qc_all_filecsv, open(qc_all_file_temp, 'w') as qc_all_file_tempcsv:
             qc_all_file_reader = csv.DictReader(qc_all_filecsv, delimiter='\t')
             qc_file_header = qc_all_file_reader.fieldnames
@@ -69,6 +70,7 @@ def qc_all_file_fix(woid, qc_dir):
     qc_pass_file = woid + '.' + qc_dir_split + '.build38.qcpass.tsv'
     qc_pass_file_temp = woid + '.' + qc_dir_split + '.build38.qcpass.temp.tsv'
     if os.path.exists(qc_pass_file):
+        print('Restoring: {}'.format(qc_pass_file))
         with open(qc_pass_file, 'r') as qc_pass_filecsv, open(qc_pass_file_temp, 'w') as qc_pass_file_tempcsv:
             qc_pass_file_reader = csv.DictReader(qc_pass_filecsv, delimiter='\t')
             sample_pass_header = qc_pass_file_reader.fieldnames
@@ -87,6 +89,7 @@ def qc_all_file_fix(woid, qc_dir):
     qc_samplemap = woid + '.' + qc_dir_split + '.qcpass.samplemap.tsv'
     qc_samplemap_temp = woid + '.' + qc_dir_split + '.qcpass.samplemap.temp.tsv'
     if os.path.exists(qc_samplemap):
+        print('Restoring: {}'.format(qc_samplemap))
         with open(qc_samplemap, 'r') as qc_samplemapcsv, open(qc_samplemap_temp, 'w') as qc_samplemap_tempcsv:
             qc_samplemap_reader = csv.reader(qc_samplemapcsv, delimiter='\t')
             qc_samplemap_temp_writer = csv.writer(qc_samplemap_tempcsv, delimiter='\t')
@@ -102,6 +105,7 @@ def qc_all_file_fix(woid, qc_dir):
     qc_fail_file = woid + '.' + qc_dir_split + '.build38.fail.tsv'
     qc_fail_file_temp = woid + '.' + qc_dir_split + '.build38.fail.temp.tsv'
     if os.path.exists(qc_fail_file):
+        print('Restoring: {}'.format(qc_fail_file))
         with open(qc_fail_file, 'r') as qc_fail_filecsv, open(qc_fail_file_temp, 'w') as qc_fail_file_tempcsv:
             qc_fail_file_reader = csv.DictReader(qc_fail_filecsv, delimiter='\t')
             fail_file_header = qc_fail_file_reader.fieldnames
@@ -115,21 +119,22 @@ def qc_all_file_fix(woid, qc_dir):
                 else:
                     qc_fail_file_temp_writer.writerow(line)
     os.rename(qc_fail_file_temp, qc_fail_file)
-
     return
 
-#genearate list of correct sample names using
-#need auto method and user input method
-# illumina_info --report library_index_summary --format tsv --woid WOID --output-file-name outfile.test
-#create dictionary with sample:zerosample from file
+#run illumina_info if not run, use output to create dict with correct sample names
 zero_samp_dict = {}
 def qc_info_create(woid):
 
     info_outfile = 'illumina_info.' + woid + '.tsv'
 
+    if os.path.exists(info_outfile):
+        print('{} file found.'.format(info_outfile))
+
     if not os.path.exists(info_outfile):
+        print('{} file not found.\nCreating {} file.'.format(info_outfile,info_outfile))
         subprocess.run(["illumina_info", "--report", 'library_index_summary', "--format", 'tsv', "--woid", woid,
                         "--output-file-name", info_outfile])
+
 
     with open(info_outfile, 'r') as info_outfilecsv:
         info_file_reader = csv.reader(info_outfilecsv, delimiter='\t')
@@ -145,7 +150,6 @@ def qc_info_create(woid):
                 if zero_sample[0] == '0':
                     non_zero_sample = zero_sample[1:]
                     zero_samp_dict[non_zero_sample] = zero_sample
-
     return
 
 #set working dir, glob woid dirs
@@ -156,6 +160,7 @@ woid_dirs = glob.glob('285*')
 for woid in filter(is_int, woid_dirs):
 
     os.chdir(working_directory + woid)
+    print('\n-------\n{}\n-------'.format(woid))
 
     #create info file if it does not exist
     qc_info_create(woid)
@@ -170,6 +175,7 @@ for woid in filter(is_int, woid_dirs):
         os.chdir(qc_dir)
         qc_all_file_fix(woid, qc_dir)
 
+    print('-------\n')
     os.chdir(working_directory)
 
 
