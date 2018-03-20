@@ -1,4 +1,10 @@
-import os, csv, glob, subprocess
+import os, csv, glob, subprocess, argparse
+
+parser = argparse.ArgumentParser()
+
+group = parser.add_mutually_exclusive_group()
+group.add_argument("-w", type=str, help='input woid id')
+args = parser.parse_args()
 
 #test dir
 # working_directory = '/Users/ltrani/Desktop/git/qc/ccdg_zero_restore/ccdg_zero_restore/'
@@ -46,8 +52,12 @@ def qc_status_fix(woid):
 #restore sample name in all qc files
 def qc_all_file_fix(woid, qc_dir):
 
+    #correct file name prefix
+    qc_remove_dir = str(qc_dir.split('qc.')[1])
+    qc_dir_split_period = qc_remove_dir.split('.')
+    qc_dir_split = qc_dir_split_period[0] + '.' + qc_dir_split_period[1]
+
     #fix sample name in all.tsv
-    qc_dir_split = str(qc_dir.split('qc.')[1])
     qc_all_file = woid + '.' + qc_dir_split + '.build38.all.tsv'
     qc_all_file_temp = woid + '.' + qc_dir_split + '.build38.all.temp.tsv'
     if os.path.exists(qc_all_file):
@@ -154,7 +164,11 @@ def qc_info_create(woid):
 
 #set working dir, glob woid dirs
 os.chdir(working_directory)
-woid_dirs = glob.glob('285*')
+
+if args.w:
+    woid_dirs = [args.w]
+else:
+    woid_dirs = glob.glob('285*')
 
 #iterate through woid dirs, restore zeros to file
 for woid in filter(is_int, woid_dirs):
@@ -173,11 +187,12 @@ for woid in filter(is_int, woid_dirs):
     #restore qc file samples
     for qc_dir in qc_dirs:
         os.chdir(qc_dir)
+        print('QC Directory: {}'.format(os.getcwd()))
         qc_all_file_fix(woid, qc_dir)
+        os.chdir(working_directory+woid)
 
     print('-------\n')
     os.chdir(working_directory)
-
 
 
 
