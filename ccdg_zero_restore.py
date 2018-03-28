@@ -8,7 +8,7 @@ args = parser.parse_args()
 
 #test dir
 # working_directory = '/Users/ltrani/Desktop/git/qc/ccdg_zero_restore/ccdg_zero_restore/'
-working_directory = '/gscmnt/gc2783/qc/CCDGWGS2018/dev/'
+working_directory = '/gscmnt/gc2783/qc/CCDGWGS2018/'
 
 #test file, will need to run illumina_info to get this file
 # infile = '/Users/ltrani/Desktop/git/qc/ccdg_zero_restore/ccdg_zero_restore/correctsamples.tsv'
@@ -27,27 +27,28 @@ def qc_status_fix(woid):
 
     qc_status_file = woid + '.qcstatus.tsv'
     qc_status_file_temp = woid + '.qcstatus.temp.tsv'
-    with open(qc_status_file, 'r') as qc_status_filecsv, open(qc_status_file_temp, 'w') as qc_status_file_tempcsv:
-        qc_status_file_reader = csv.DictReader(qc_status_filecsv, delimiter='\t')
-        status_file_header = qc_status_file_reader.fieldnames
-        qc_status_file_temp_writer = csv.DictWriter(qc_status_file_tempcsv, fieldnames=status_file_header, delimiter='\t')
-        qc_status_file_temp_writer.writeheader()
-        if os.path.exists(qc_status_file):
-            print('Restoring: {}'.format(qc_status_file))
-            for line in qc_status_file_reader:
-                if line['Full Name'] in zero_samp_dict:
-                    line['Content'] = zero_samp_dict[line['Full Name']]
-                    line['Name'] = zero_samp_dict[line['Full Name']]
-                    line['Sample Name'] = zero_samp_dict[line['Full Name']]
-                    line['DNA'] = zero_samp_dict[line['Full Name']]
-                    line['Read Group Sample Name'] = zero_samp_dict[line['Full Name']]
-                    line['QC Sample'] = zero_samp_dict[line['Full Name']]
-                    line['Full Name'] = zero_samp_dict[line['Full Name']]
-                    qc_status_file_temp_writer.writerow(line)
-                else:
-                    qc_status_file_temp_writer.writerow(line)
-        os.rename(qc_status_file_temp, qc_status_file)
-        return
+    if os.path.exists(qc_status_file):
+        with open(qc_status_file, 'r') as qc_status_filecsv, open(qc_status_file_temp, 'w') as qc_status_file_tempcsv:
+            qc_status_file_reader = csv.DictReader(qc_status_filecsv, delimiter='\t')
+            status_file_header = qc_status_file_reader.fieldnames
+            qc_status_file_temp_writer = csv.DictWriter(qc_status_file_tempcsv, fieldnames=status_file_header, delimiter='\t')
+            qc_status_file_temp_writer.writeheader()
+            if os.path.exists(qc_status_file):
+                print('Restoring: {}'.format(qc_status_file))
+                for line in qc_status_file_reader:
+                    if line['Full Name'] in zero_samp_dict:
+                        line['Content'] = zero_samp_dict[line['Full Name']]
+                        line['Name'] = zero_samp_dict[line['Full Name']]
+                        line['Sample Name'] = zero_samp_dict[line['Full Name']]
+                        line['DNA'] = zero_samp_dict[line['Full Name']]
+                        line['Read Group Sample Name'] = zero_samp_dict[line['Full Name']]
+                        line['QC Sample'] = zero_samp_dict[line['Full Name']]
+                        line['Full Name'] = zero_samp_dict[line['Full Name']]
+                        qc_status_file_temp_writer.writerow(line)
+                    else:
+                        qc_status_file_temp_writer.writerow(line)
+            os.rename(qc_status_file_temp, qc_status_file)
+    return
 
 #restore sample name in all qc files
 def qc_all_file_fix(woid, qc_dir):
@@ -177,7 +178,12 @@ for woid in filter(is_int, woid_dirs):
     print('\n-------\n{}\n-------'.format(woid))
 
     #create info file if it does not exist
+    if not os.path.exists(woid + '.qcstatus.tsv'):
+        print("No {}.qcstatus.tsv file found, skipping zero restore.".format(woid))
+        continue
+
     qc_info_create(woid)
+
     #restore status file samples
     qc_status_fix(woid)
 
